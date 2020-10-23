@@ -1,5 +1,5 @@
-// const socket = io.connect('https://demo-nodejs-hoang.herokuapp.com');
-const socket = io.connect('localhost:7000');
+const socket = io.connect('https://demo-nodejs-hoang.herokuapp.com');
+// const socket = io.connect('localhost:7000');
 
 let answersFrom = {}, offer;
 
