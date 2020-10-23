@@ -1,5 +1,4 @@
-const socket = io.connect('https://demo-nodejs-hoang.herokuapp.com');
-// const socket = io.connect('localhost:7000');
+const socket = io.connect(window.origin);
 
 let answersFrom = {}, offer;
 
@@ -26,13 +25,13 @@ navigator.getUserMedia = navigator.getUserMedia ||
 
 const pc = new peerConnection({
     iceServers: [{
-        urls: "stun:stun.services.mozilla.com",
+        url: "stun:stun.services.mozilla.com",
         username: "somename",
         credential: "somecredentials"
     }]
 });
 
-pc.ontrack = function (obj) {
+pc.onaddstream = function (obj) {
     const vid = document.createElement('video');
     vid.setAttribute('class', 'video-small');
     vid.setAttribute('autoplay', 'autoplay');
@@ -74,7 +73,7 @@ socket.on('answer-made', function (data) {
     }, error);
 });
 
-navigator.mediaDevices.getUserMedia({ video: true, audio: true }, function (stream) {
+navigator.getUserMedia({ video: true, audio: true }, function (stream) {
     var video = document.querySelector('video');
     video.srcObject = stream;
     pc.addStream(stream);
