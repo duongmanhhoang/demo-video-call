@@ -1,8 +1,8 @@
-import * as express from 'express';
-import * as dotenv from 'dotenv';
-import * as path from 'path';
-import * as socketIo from 'socket.io';
-import { createServer, Server } from 'http';
+import * as express from "express";
+import * as dotenv from "dotenv";
+import * as path from "path";
+import * as socketIo from "socket.io";
+import { createServer, Server } from "http";
 dotenv.config();
 
 export class ChatServer {
@@ -10,8 +10,8 @@ export class ChatServer {
     private port: string;
     private server: Server;
     private io: socketIo.Server;
-    private socketsArray: string[] = [];
-    
+    private activeSockets: string[] = [];
+
     constructor() {
         this.createApp();
         this.config();
@@ -22,7 +22,7 @@ export class ChatServer {
 
     private createApp(): void {
         this.app = express();
-        this.app.use(express.static((path.join(__dirname, '../public'))));
+        this.app.use(express.static(path.join(__dirname, "../public")));
     }
 
     private config(): void {
@@ -31,29 +31,60 @@ export class ChatServer {
 
     private listen(): void {
         this.server.listen(this.port);
-        this.io.on('connection', (socket) => {
-            socket.broadcast.emit('add-users', {
-                users: [socket.id]
-            });
+        this.io.on("connection", (socket) => {
+            const existingSocket = this.activeSockets.find(
+                (existingSocket) => existingSocket === socket.id
+            );
 
-            socket.on('disconnect', () => {
-                this.socketsArray.splice(this.socketsArray.indexOf(socket.id), 1);
-                this.io.emit('remove-user', socket.id);
-            });
+            if (!existingSocket) {
+                this.activeSockets.push(socket.id);
 
-            socket.on('make-offer', (data) => {
-                socket.to(data.to).emit('offer-made', {
+                socket.broadcast.emit("add-users", {
+                    users: [socket.id],
+                });
+            }
+
+            socket.on("call-user", (data) => {
+                socket.to(data.to).emit("call-made", {
                     offer: data.offer,
                     socket: socket.id
                 });
             });
 
-            socket.on('make-answer', (data) => {
-                socket.to(data.to).emit('answer-made', {
+            socket.on("make-answer", (data) => {
+                socket.to(data.to).emit("answer-made", {
                     socket: socket.id,
-                    answer: data.answer
+                    answer: data.answer,
                 });
             });
+
+            socket.on("reject-call", (data) => {
+                socket.to(data.from).emit("call-rejected", {
+                    socket: socket.id,
+                });
+            });
+
+            socket.on("disconnect", () => {
+                this.activeSockets = this.activeSockets.filter(
+                    (existingSocket) => existingSocket !== socket.id
+                );
+                this.io.emit("remove-user", {
+                    user: socket.id,
+                });
+            });
+            // socket.on("make-offer", (data) => {
+            //     socket.to(data.to).emit("offer-made", {
+            //         offer: data.offer,
+            //         socket: socket.id,
+            //     });
+            // });
+
+            // socket.on("make-answer", (data) => {
+            //     socket.to(data.to).emit("answer-made", {
+            //         socket: socket.id,
+            //         answer: data.answer,
+            //     });
+            // });
         });
     }
 
