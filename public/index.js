@@ -1,102 +1,4 @@
-// const socket = io.connect(window.origin);
-
-// let answersFrom = {}, offer;
-
-// const peerConnection = window.RTCPeerConnection ||
-//     window.mozRTCPeerConnection ||
-//     window.webkitRTCPeerConnection ||
-//     window.msRTCPeerConnection;
-// // console.log(navigator.mediaDevices.getUserMedia({ video: true }).then(data => {
-// //     console.log(data);
-// // })
-// //     .catch(err => {
-// //         console.log(err, 99);
-// //     }));
-
-// const sessionDescription = window.RTCSessionDescription ||
-//     window.mozRTCSessionDescription ||
-//     window.webkitRTCSessionDescription ||
-//     window.msRTCSessionDescription;
-
-// navigator.getUserMedia = navigator.getUserMedia ||
-//     navigator.webkitGetUserMedia ||
-//     navigator.mozGetUserMedia ||
-//     navigator.msGetUserMedia;
-
-// const pc = new peerConnection({
-//     iceServers: [{
-//         url: "stun:stun.services.mozilla.com",
-//         username: "somename",
-//         credential: "somecredentials"
-//     }]
-// });
-
-// pc.onaddstream = function (obj) {
-//     const vid = document.createElement('video');
-//     vid.setAttribute('class', 'video-small');
-//     vid.setAttribute('autoplay', 'autoplay');
-//     vid.setAttribute('id', 'video-small');
-//     vid.setAttribute('id', 'vid-mock');
-//     vid.setAttribute("src", 'https://woolyss.com/f/spring-vp9-vorbis.webm');
-//     vid.setAttribute("crossorigin", "anonymous");
-//     vid.setAttribute("controls", "");
-//     document.getElementById('users-container').appendChild(vid);
-//     vid.srcObject = obj.stream;
-// }
-
-// socket.on('offer-made', function (data) {
-//     offer = data.offer;
-
-//     pc.setRemoteDescription(new sessionDescription(data.offer), function () {
-//         pc.createAnswer(function (answer) {
-//             pc.setLocalDescription(new sessionDescription(answer), function () {
-//                 console.log('MAKE ANSWER');
-//                 socket.emit('make-answer', {
-//                     answer: answer,
-//                     to: data.socket
-//                 });
-//             }, error);
-//         }, error);
-//     }, error);
-
-// });
-
-// socket.on('answer-made', function (data) {
-//     pc.setRemoteDescription(new sessionDescription(data.answer), function () {
-//         document.getElementById(data.socket).setAttribute('class', 'active');
-//         if (!answersFrom[data.socket]) {
-//             createOffer(data.socket);
-//             answersFrom[data.socket] = true;
-//         }
-//     }, error);
-// });
-
-// navigator.getUserMedia({ video: true, audio: true }, function (stream) {
-//     var video = document.querySelector('video');
-//     video.srcObject = stream;
-//     pc.addStream(stream);
-// }, error);
-
-// socket.on('remove-user', function (id) {
-//     const div = document.getElementById(id);
-//     document.getElementById('users').removeChild(div);
-// });
-
-// function createOffer(id) {
-//     pc.createOffer(function (offer) {
-//         pc.setLocalDescription(new sessionDescription(offer), function () {
-//             socket.emit('make-offer', {
-//                 offer: offer,
-//                 to: id
-//             });
-//         }, error);
-//     }, error);
-// }
-
-// function error(err) {
-//     console.error('Error', err);
-// }
-
+const codeRoom = window.location.pathname.slice(6);
 let isAlreadyCalling = false;
 let getCalled = false;
 const existingCalls = [];
@@ -157,62 +59,63 @@ async function callUser(socketId) {
     const offer = await peerConnection.createOffer();
     await peerConnection.setLocalDescription(new RTCSessionDescription(offer));
 
-    socket.emit('call-user', {
+    socket.emit(`call-user-${codeRoom}`, {
         offer,
         to: socketId
     });
 }
 
 // Socket
-socket.on('add-users', ({ users }) => {
-    updateUserList(users);
-});
+// socket.on(`add-users-${codeRoom}`, ({ users }) => {
+//     console.log(users);
+//     updateUserList(users);
+// });
 
-socket.on('call-made', async data => {
-    console.log(data);
-    if (getCalled) {
-        const confirmed = confirm(
-            `User "Socket: ${data.socket}" wants to call you. Do accept this call?`
-        );
+// socket.on(`call-made-${codeRoom}`, async data => {
+//     console.log(data);
+//     if (getCalled) {
+//         const confirmed = confirm(
+//             `User "Socket: ${data.socket}" wants to call you. Do accept this call?`
+//         );
 
-        if (!confirmed) {
-            socket.emit('reject-call', {
-                from: data.socket
-            });
+//         if (!confirmed) {
+//             socket.emit(`reject-call-${codeRoom}`, {
+//                 from: data.socket
+//             });
 
-            return;
-        }
-    }
-    console.log(data);
+//             return;
+//         }
+//     }
+//     console.log(data);
 
-    await peerConnection.setRemoteDescription(
-        new RTCSessionDescription(data.offer)
-    );
-    const answer = await peerConnection.createAnswer();
-    await peerConnection.setLocalDescription(new RTCSessionDescription(answer));
+//     await peerConnection.setRemoteDescription(
+//         new RTCSessionDescription(data.offer)
+//     );
+//     const answer = await peerConnection.createAnswer();
+//     await peerConnection.setLocalDescription(new RTCSessionDescription(answer));
 
-    socket.emit('make-answer', {
-        answer,
-        to: data.socket
-    });
-    getCalled = true;
-});
+//     socket.emit(`make-answer-${codeRoom}`, {
+//         answer,
+//         to: data.socket
+//     });
+//     getCalled = true;
+// });
 
-socket.on('answer-made', async data => {
-    await peerConnection.setRemoteDescription(
-        new RTCSessionDescription(data.answer)
-    );
+// socket.on(`answer-made-${codeRoom}`, async data => {
+//     await peerConnection.setRemoteDescription(
+//         new RTCSessionDescription(data.answer)
+//     );
 
-    if (!isAlreadyCalling) {
-        callUser(data.socket);
-        isAlreadyCalling = true;
-    }
-});
+//     if (!isAlreadyCalling) {
+//         callUser(data.socket);
+//         isAlreadyCalling = true;
+//     }
+// });
 
-socket.on('call-rejected', data => {
-    alert(`User: "Socket: ${data.socket}" rejected your call.`);
-    unselectUsersFromList();
-});
+// socket.on(`call-rejected-${codeRoom}`, data => {
+//     alert(`User: "Socket: ${data.socket}" rejected your call.`);
+//     unselectUsersFromList();
+// });
 
 peerConnection.ontrack = function ({ streams: [stream] }) {
     const remoteVideo = document.getElementById('remote-video');

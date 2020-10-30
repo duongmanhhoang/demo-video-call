@@ -1,8 +1,9 @@
-import * as express from "express";
-import * as dotenv from "dotenv";
-import * as path from "path";
-import * as socketIo from "socket.io";
+import express from "express";
+import dotenv from "dotenv";
+import path from "path";
+import socketIo from "socket.io";
 import { createServer, Server } from "http";
+import Room from "./models/Room";
 dotenv.config();
 
 export class ChatServer {
@@ -29,64 +30,60 @@ export class ChatServer {
         this.port = process.env.PORT;
     }
 
-    private listen(): void {
+    private listen = async () => {
         this.server.listen(this.port);
-        this.io.on("connection", (socket) => {
-            const existingSocket = this.activeSockets.find(
-                (existingSocket) => existingSocket === socket.id
-            );
+        const rooms = await Room.find({}).exec();
+        this.io.on("connection", async (socket) => {
+            // console.log(socket.id)
+            // const existingSocket = this.activeSockets.find(
+            //     (existingSocket) => existingSocket === socket.id
+            // );
 
-            if (!existingSocket) {
-                this.activeSockets.push(socket.id);
+            // if (!existingSocket) {
+            //     this.activeSockets.push(socket.id);
 
-                socket.broadcast.emit("add-users", {
+            //     socket.broadcast.emit(`add-users-${code}`, {
+            //         users: [socket.id],
+            //     });
+            // }
+            await rooms.forEach((room) => {
+                const { code } = room;
+
+                socket.broadcast.emit(`add-users-${code}`, {
                     users: [socket.id],
                 });
-            }
+                socket.on(`call-user-${code}`, (data) => {
+                    socket.to(data.to).emit(`call-made-${code}`, {
+                        offer: data.offer,
+                        socket: socket.id,
+                    });
+                });
 
-            socket.on("call-user", (data) => {
-                socket.to(data.to).emit("call-made", {
-                    offer: data.offer,
-                    socket: socket.id
+                socket.on(`make-answer-${code}`, (data) => {
+                    socket.to(data.to).emit(`answer-made-${code}`, {
+                        socket: socket.id,
+                        answer: data.answer,
+                    });
+                });
+
+                socket.on(`reject-call-${code}`, (data) => {
+                    socket.to(data.from).emit("call-rejected", {
+                        socket: socket.id,
+                    });
                 });
             });
-
-            socket.on("make-answer", (data) => {
-                socket.to(data.to).emit("answer-made", {
-                    socket: socket.id,
-                    answer: data.answer,
-                });
-            });
-
-            socket.on("reject-call", (data) => {
-                socket.to(data.from).emit("call-rejected", {
-                    socket: socket.id,
-                });
-            });
+            console.log(socket._events);
 
             socket.on("disconnect", () => {
                 this.activeSockets = this.activeSockets.filter(
                     (existingSocket) => existingSocket !== socket.id
                 );
-                this.io.emit("remove-user", {
-                    user: socket.id,
-                });
+                // this.io.emit(`remove-user-${code}`, {
+                //     user: socket.id,
+                // });
             });
-            // socket.on("make-offer", (data) => {
-            //     socket.to(data.to).emit("offer-made", {
-            //         offer: data.offer,
-            //         socket: socket.id,
-            //     });
-            // });
-
-            // socket.on("make-answer", (data) => {
-            //     socket.to(data.to).emit("answer-made", {
-            //         socket: socket.id,
-            //         answer: data.answer,
-            //     });
-            // });
         });
-    }
+    };
 
     private createServer(): void {
         this.server = createServer(this.app);
