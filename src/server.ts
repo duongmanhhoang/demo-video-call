@@ -1,7 +1,10 @@
 import mongoose from 'mongoose';
 import dotenv from 'dotenv';
+import cors from 'cors';
 import { ChatServer } from './chat-server';
 import { Routes } from './routes/index';
+
+
 dotenv.config();
 
 mongoose.connect(
@@ -11,6 +14,7 @@ mongoose.connect(
   );
  
 let app = new ChatServer().getApp();
+app.use(cors());
 const routes = new Routes(app);
  
 routes.getRoutes();

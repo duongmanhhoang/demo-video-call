@@ -9,19 +9,6 @@ export class Routes {
 
     constructor(app) {
         this.app = app;
-        this.rootFolder = path.join(__dirname, '../views/');
-    }
-
-    private home(): void {
-        this.app.get('/', (request, response) => {
-            response.sendFile('index.html', { root: this.rootFolder });
-        });
-    }
-
-    private room(): void {
-        this.app.get('/room/:code', (request, response) => {
-            response.sendFile('room.html', { root: this.rootFolder });
-        });
     }
 
     private createRoom(): void {
@@ -42,15 +29,26 @@ export class Routes {
 
             try {
                 const newRoom = await room.save();
-                // await response.send(newRoom);
-                response.writeHead(302, {
-                    'Location': `room/${newRoom.code}`
-                  });
-                response.end();
+                await response.send(newRoom);
             } catch (err) {
                 response.status(400).send(err);
             }
         });
+    }
+
+    private getRoom(): void {
+        this.app.get('/get-room/:code', async (request, response) => {
+            const roomCode = request.params.code;
+            const room = await Room.findOne({ code: roomCode }).exec();
+            
+            if (!room) {
+                return response.status(400).send({
+                    'message': 'not found'
+                });
+            }
+
+            return response.status(200).send(room);
+        })
     }
 
     private makeRandomString = function(length) {
@@ -71,8 +69,7 @@ export class Routes {
      }
 
     public getRoutes(): void {
-        this.home();
-        this.room();
         this.createRoom();
+        this.getRoom();
     }
 }

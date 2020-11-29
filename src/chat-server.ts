@@ -11,7 +11,8 @@ export class ChatServer {
     private port: string;
     private server: Server;
     private io: socketIo.Server;
-    private activeSockets: string[] = [];
+    private users: any[] = [];
+    private socketRoomMap: any[] = [];
 
     constructor() {
         this.createApp();
@@ -28,59 +29,75 @@ export class ChatServer {
 
     private config(): void {
         this.port = process.env.PORT;
+        this.app.set('port', this.port);
     }
 
     private listen = async () => {
         this.server.listen(this.port);
         const rooms = await Room.find({}).exec();
         this.io.on("connection", async (socket) => {
-            // console.log(socket.id)
-            // const existingSocket = this.activeSockets.find(
-            //     (existingSocket) => existingSocket === socket.id
-            // );
+            socket.on("join-room", (roomCode, userDetail) => {
+                socket.join(roomCode);
+                const newUser = {
+                    socketId: socket.id,
+                    ...userDetail,
+                };
 
-            // if (!existingSocket) {
-            //     this.activeSockets.push(socket.id);
+                if (this.users[roomCode]) {
+                    this.users[roomCode].push(newUser);
+                } else {
+                    this.users[roomCode] = [newUser];
+                }
 
-            //     socket.broadcast.emit(`add-users-${code}`, {
-            //         users: [socket.id],
-            //     });
-            // }
-            await rooms.forEach((room) => {
-                const { code } = room;
+                this.socketRoomMap[socket.id] = roomCode;
 
-                socket.broadcast.emit(`add-users-${code}`, {
-                    users: [socket.id],
-                });
-                socket.on(`call-user-${code}`, (data) => {
-                    socket.to(data.to).emit(`call-made-${code}`, {
-                        offer: data.offer,
-                        socket: socket.id,
-                    });
-                });
+                const usersInThisRoom = this.users[roomCode].filter(
+                    (user) => user.socketId !== socket.id
+                );
 
-                socket.on(`make-answer-${code}`, (data) => {
-                    socket.to(data.to).emit(`answer-made-${code}`, {
-                        socket: socket.id,
-                        answer: data.answer,
-                    });
-                });
+                socket.emit("users-present-in-room", usersInThisRoom);
 
-                socket.on(`reject-call-${code}`, (data) => {
-                    socket.to(data.from).emit("call-rejected", {
-                        socket: socket.id,
-                    });
+                socket.on(`send-chat-${roomCode}`, (data) => {
+                    this.io.sockets.emit(`send-chat-${roomCode}`, data);
+                })
+            });
+            
+
+            socket.on("initiate-signal", (payload) => {
+                const roomCode = this.socketRoomMap[socket.id];
+                let room = this.users[roomCode];
+                let name = "";
+
+                if (room) {
+                    const user = room.find(
+                        (user) => user.socketId === socket.id
+                    );
+                    name = user.name;
+                }
+
+                this.io.to(payload.userToSignal).emit("user-joined", {
+                    signal: payload.signal,
+                    callerId: payload.callerId,
+                    name,
                 });
             });
-            console.log(socket._events);
+
+            socket.on("ack-signal", (payload) => {
+                this.io.to(payload.callerId).emit("signal-accepted", {
+                    signal: payload.signal,
+                    id: socket.id,
+                });
+            });
 
             socket.on("disconnect", () => {
-                this.activeSockets = this.activeSockets.filter(
-                    (existingSocket) => existingSocket !== socket.id
-                );
-                // this.io.emit(`remove-user-${code}`, {
-                //     user: socket.id,
-                // });
+                const roomCode = this.socketRoomMap[socket.id];
+                let room = this.users[roomCode];
+                if (room) {
+                    room = room.filter((user) => user.socketId !== socket.id);
+                    this.users[roomCode] = room;
+                }
+                // on disconnect sending to all users that user has disconnected
+                socket.to(roomCode).broadcast.emit("user-disconnected", socket.id);
             });
         });
     };
